@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Simulasi Gempa</title>
+<style>
+:root{
+  --bg:#f2f4f6; --panel:#ffffff; --ink:#17222d; --muted:#667585; --line:#d9dfe5;
+  --tanah:#5b6b7a; --kecil:#0e8a7d; --sedang:#c98a00; --tinggi:#c2413a;
+  --ok:#1f8a4c; --bad:#c2413a;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#10161c; --panel:#18212a; --ink:#e6ebf0; --muted:#8fa0b0; --line:#2a3743;
+    --tanah:#8fa3b5; --kecil:#2bb8a7; --sedang:#e3a920; --tinggi:#e8695f;
+    --ok:#4cc27c; --bad:#e8695f;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.top h1{margin:0;font-size:22px;font-weight:650;letter-spacing:-.01em}
+.top .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);
+  border-radius:999px;padding:4px 12px;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
+button,select,input{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--kecil);outline-offset:2px}
+input,select{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 10px}
+
+.sensors{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px}
+.sensor{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:6px;padding:12px 14px}
+.sensor.off{opacity:.55}
+.sensor.res{border-color:var(--bad);border-top-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}
+.sensor header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sensor h3{margin:0;font-size:15px;font-weight:650;color:var(--c)}
+.tag{font-size:13px;color:var(--muted)}
+.sensor.res .tag{color:var(--bad);font-weight:650}
+.big{font-size:30px;font-weight:650;line-height:1.2;margin:6px 0 8px}
+.big small{font-size:13px;font-weight:400;color:var(--muted)}
+dl{display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin:0;font-size:14px}
+dt{color:var(--muted)} dd{margin:0;text-align:right}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:16px}
+.panel h2{margin:0 0 2px;font-size:16px;font-weight:650}
+.panel p.sub{margin:0 0 10px;color:var(--muted);font-size:14px;max-width:70ch}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+.chartbox{position:relative;height:260px}
+.chartbox.tall{height:320px}
+
+.sweephead{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end;margin-bottom:8px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.natural{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
+.nat{border-left:4px solid var(--c);padding:2px 0 2px 12px}
+.nat .v{font-size:26px;font-weight:650;line-height:1.2}
+.nat .l{font-size:14px;color:var(--muted)}
+.nat .n{font-size:13px;color:var(--muted)}
+
+.cols{display:grid;grid-template-columns:1fr 1.4fr;gap:16px}
+@media (max-width:820px){.cols{grid-template-columns:1fr}}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.row input{flex:1;min-width:140px}
+ul.log{list-style:none;margin:8px 0 0;padding:0;max-height:240px;overflow:auto;font-size:14px}
+ul.log li{padding:5px 0;border-top:1px solid var(--line)}
+ul.log li:first-child{border-top:0}
+ul.log .w{color:var(--muted);margin-right:8px}
+ul.log .r{color:var(--bad);font-weight:600}
+.empty{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>Simulasi Gempa: tanah dan tiga bangunan</h1>
+    <div class="right">
+      <span class="pill"><span class="dot" id="espDot"></span><span id="espText">Menunggu data</span></span>
+      <button id="muteBtn" type="button">Bisukan buzzer</button>
+    </div>
+  </div>
+
+  <section class="sensors" id="sensors" aria-label="Status sensor"></section>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>Getaran dari waktu ke waktu</h2>
+      <p class="sub">RMS gabungan tiap sensor. Celah pada garis berarti sensor sedang putus.</p>
+      <div class="chartbox"><canvas id="rmsChart"></canvas></div>
+    </section>
+    <section class="panel">
+      <h2>Spektrum frekuensi</h2>
+      <p class="sub">Frekuensi yang paling kuat pada tiap sensor, diperbarui tiap 2 detik.</p>
+      <div class="chartbox"><canvas id="specChart"></canvas></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="sweephead">
+      <div>
+        <h2>Frekuensi natural bangunan</h2>
+        <p class="sub">Getarkan meja pada beberapa frekuensi. Tiap bangunan memperkuat getaran paling besar di frekuensi naturalnya, yaitu puncak kurva.</p>
+      </div>
+      <div class="tools">
+        <label for="filterSesi" class="tag">Data dari</label>
+        <select id="filterSesi"><option value="">Semua data</option></select>
+        <button id="reloadSweep" type="button">Muat ulang</button>
+        <a id="exportLink" href="/api/export.csv" download><button type="button">Unduh CSV</button></a>
+      </div>
+    </div>
+    <div class="chartbox tall"><canvas id="sweepChart"></canvas></div>
+    <div class="natural" id="natural"></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Sesi pengujian</h2>
+      <p class="sub" id="sesiAktif">Memuat...</p>
+      <div class="row">
+        <input id="sesiNama" type="text" maxlength="100" placeholder="Nama sesi, misalnya Sapuan 3 Hz" aria-label="Nama sesi">
+      </div>
+      <div class="row">
+        <button id="sesiMulai" class="primary" type="button">Mulai sesi</button>
+        <button id="sesiSelesai" type="button">Akhiri sesi</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Kejadian</h2>
+      <ul class="log" id="log"><li class="empty">Belum ada kejadian.</li></ul>
+    </section>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const KEYS = ["tanah","kecil","sedang","tinggi"];
+const BANG = ["kecil","sedang","tinggi"];
+const NAMA = {tanah:"Tanah", kecil:"Bangunan kecil", sedang:"Bangunan sedang", tinggi:"Bangunan tinggi"};
+const $ = id => document.getElementById(id);
+const fmt = (v,d=3,u="") => (v==null ? "--" : Number(v).toFixed(d)+u);
+const css = getComputedStyle(document.documentElement);
+const col = k => css.getPropertyValue("--"+k).trim();
+
+Chart.defaults.color = col("muted");
+Chart.defaults.borderColor = col("line");
+Chart.defaults.animation = false;
+
+// ---------- Kartu sensor ----------
+$("sensors").innerHTML = KEYS.map(k => `
+  <article class="sensor off" id="c-${k}" style="--c:var(--${k})">
+    <header><h3>${NAMA[k]}</h3><span class="tag" id="t-${k}">Offline</span></header>
+    <div class="big"><span id="rms-${k}">--</span> <small>g RMS</small></div>
+    <dl>
+      <dt>Frekuensi dominan</dt><dd id="f-${k}">--</dd>
+      <dt>Amplitudo</dt><dd id="a-${k}">--</dd>
+      ${k==="tanah" ? "" : `<dt>Rasio ke tanah</dt><dd id="r-${k}">--</dd>`}
+    </dl>
+  </article>`).join("");
+
+$("natural").innerHTML = BANG.map(k => `
+  <div class="nat" style="--c:var(--${k})">
+    <div class="l">${NAMA[k]}</div>
+    <div class="v" id="fn-${k}">--</div>
+    <div class="n" id="fr-${k}">belum ada data sapuan</div>
+    <div class="n" id="fb-${k}"></div>
+  </div>`).join("");
+
+// ---------- Grafik ----------
+const MAXPTS = 150;
+const rmsChart = new Chart($("rmsChart"), {
+  type:"line",
+  data:{labels:[], datasets:KEYS.map(k => ({label:NAMA[k], data:[], borderColor:col(k), backgroundColor:col(k),
+        borderWidth:1.6, pointRadius:0, tension:.2}))},
+  options:{maintainAspectRatio:false, interaction:{mode:"index", intersect:false},
+    scales:{y:{beginAtZero:true, title:{display:true, text:"g (RMS)"}}, x:{ticks:{maxTicksLimit:6}}},
+    plugins:{legend:{position:"bottom"}}}
+});
+const specChart = new Chart($("specChart"), {
+  type:"line",
+  data:{labels:[], datasets:KEYS.map(k => ({label:NAMA[k], data:[], borderColor:col(k), backgroundColor:col(k),
+        borderWidth:1.6, pointRadius:0, tension:.1}))},
+  options:{maintainAspectRatio:false, interaction:{mode:"index", intersect:false},
+    scales:{y:{beginAtZero:true, title:{display:true, text:"Amplitudo (g)"}},
+            x:{title:{display:true, text:"Frekuensi (Hz)"}, ticks:{maxTicksLimit:12}}},
+    plugins:{legend:{position:"bottom"}}}
+});
+const sweepChart = new Chart($("sweepChart"), {
+  type:"scatter",
+  data:{datasets:BANG.map(k => ({label:NAMA[k], data:[], borderColor:col(k), backgroundColor:col(k),
+        showLine:true, pointRadius:4, borderWidth:2}))},
+  options:{maintainAspectRatio:false,
+    scales:{x:{type:"linear", title:{display:true, text:"Frekuensi getaran tanah (Hz)"}},
+            y:{beginAtZero:true, title:{display:true, text:"Rasio amplitudo bangunan / tanah"}}},
+    plugins:{legend:{position:"bottom"}}}
+});
+
+function pushRms(waktu, d){
+  rmsChart.data.labels.push(new Date(waktu).toLocaleTimeString("id-ID"));
+  KEYS.forEach((k,i) => { const s = d[k]; rmsChart.data.datasets[i].data.push(s && s.on===1 ? s.rms : null); });
+  if (rmsChart.data.labels.length > MAXPTS){
+    rmsChart.data.labels.shift();
+    rmsChart.data.datasets.forEach(ds => ds.data.shift());
+  }
+}
+
+// ---------- Data live ----------
+let muteNow = 0;
+function onData(d){
+  const res = d.resonansi || {};
+  KEYS.forEach(k => {
+    const s = d[k] || {}, on = s.on === 1, card = $("c-"+k);
+    const isRes = k !== "tanah" && res[k] === 1;
+    card.classList.toggle("off", !on);
+    card.classList.toggle("res", isRes);
+    $("t-"+k).textContent = !on ? "Offline" : (isRes ? "Resonansi" : "Normal");
+    $("rms-"+k).textContent = on ? fmt(s.rms,3) : "--";
+    $("f-"+k).textContent   = on ? fmt(s.f,2," Hz") : "--";
+    $("a-"+k).textContent   = on ? fmt(s.amp,3," g") : "--";
+    if (k !== "tanah") $("r-"+k).textContent = on ? fmt(s.rasio,2) : "--";
+  });
+  pushRms(d.waktu, d);
+  rmsChart.update();
+  muteNow = d.mute === 1 ? 1 : 0;
+  $("muteBtn").textContent = muteNow ? "Aktifkan buzzer" : "Bisukan buzzer";
+  if (d.sesi) $("sesiAktif").textContent = "Sesi berjalan: " + d.sesi;
+}
+
+function onSpec(d){
+  const n = (d.tanah && d.tanah.length) || (d.kecil && d.kecil.length) || 0;
+  specChart.data.labels = Array.from({length:n}, (_,k) => (k*d.df).toFixed(1));
+  KEYS.forEach((k,i) => { specChart.data.datasets[i].data = (d[k] && d[k].length) ? d[k] : []; });
+  specChart.update();
+}
+
+function setStatus(s){
+  const dot = $("espDot");
+  dot.className = "dot " + (s==="online" ? "on" : s==="offline" ? "off" : "");
+  $("espText").textContent = s==="online" ? "ESP32 online" : s==="offline" ? "ESP32 offline" : "Menunggu data";
+}
+
+function onHasil(h){
+  if (!h || !h.bangunan) return;
+  BANG.forEach(k => {
+    const b = h.bangunan[k] || {};
+    $("fb-"+k).textContent = b.f_bebas != null ? "Getar bebas: " + fmt(b.f_bebas,2," Hz") : "";
+  });
+}
+
+const LABEL = {offline:"Sensor putus", pulih:"Sensor pulih", resonansi_mulai:"Resonansi mulai", resonansi_selesai:"Resonansi selesai"};
+function addEvent(e, atTop=true){
+  const log = $("log");
+  if (log.querySelector(".empty")) log.innerHTML = "";
+  const li = document.createElement("li");
+  const w = document.createElement("span"); w.className = "w";
+  w.textContent = new Date(e.waktu).toLocaleTimeString("id-ID");
+  const t = document.createElement("span");
+  if (e.tipe === "resonansi_mulai") t.className = "r";
+  t.textContent = (LABEL[e.tipe] || e.tipe) + (e.sumber ? ": " + (NAMA[e.sumber] || e.sumber) : "");
+  li.append(w, t);
+  atTop ? log.prepend(li) : log.append(li);
+  while (log.children.length > 40) log.lastChild.remove();
+}
+
+const es = new EventSource("/stream");
+es.addEventListener("data",     e => onData(JSON.parse(e.data)));
+es.addEventListener("spektrum", e => onSpec(JSON.parse(e.data)));
+es.addEventListener("status",   e => setStatus(JSON.parse(e.data).status));
+es.addEventListener("hasil",    e => onHasil(JSON.parse(e.data)));
+es.addEventListener("event",    e => { addEvent(JSON.parse(e.data)); loadSweepSoon(); });
+es.onerror = () => { $("espText").textContent = "Server dashboard terputus"; $("espDot").className = "dot off"; };
+
+// ---------- Kurva resonansi ----------
+async function loadSweep(){
+  const id = $("filterSesi").value;
+  const rows = await (await fetch("/api/sweep" + (id ? "?sesi_id="+id : ""))).json();
+  BANG.forEach((k,i) => {
+    const pts = rows.filter(r => r.kode === k).map(r => ({x:r.f_bin, y:r.rasio_rata, n:r.n}));
+    sweepChart.data.datasets[i].data = pts;
+    const best = pts.reduce((a,b) => (!a || b.y > a.y) ? b : a, null);
+    $("fn-"+k).textContent = best ? best.x.toFixed(1) + " Hz" : "--";
+    $("fr-"+k).textContent = best ? "rasio " + best.y.toFixed(2) + " dari " + best.n + " data" : "belum ada data sapuan";
+  });
+  sweepChart.update();
+  $("exportLink").href = "/api/export.csv" + (id ? "?sesi_id="+id : "");
+}
+let sweepTimer = null;
+function loadSweepSoon(){ clearTimeout(sweepTimer); sweepTimer = setTimeout(loadSweep, 1500); }
+$("reloadSweep").onclick = loadSweep;
+$("filterSesi").onchange = loadSweep;
+setInterval(loadSweep, 15000);
+
+// ---------- Sesi ----------
+async function loadSesi(){
+  const list = await (await fetch("/api/sesi")).json();
+  const sel = $("filterSesi"), cur = sel.value;
+  sel.innerHTML = "";
+  const all = document.createElement("option"); all.value = ""; all.textContent = "Semua data"; sel.append(all);
+  list.forEach(s => {
+    const o = document.createElement("option");
+    o.value = s.id; o.textContent = s.nama + (s.selesai ? "" : " (berjalan)");
+    sel.append(o);
+  });
+  sel.value = cur;
+  const aktif = list.find(s => !s.selesai);
+  $("sesiAktif").textContent = aktif ? "Sesi berjalan: " + aktif.nama
+    : "Belum ada sesi berjalan. Data tetap tersimpan, tanpa label sesi.";
+}
+$("sesiMulai").onclick = async () => {
+  await fetch("/api/sesi/mulai", {method:"POST", headers:{"Content-Type":"application/json"},
+                                  body:JSON.stringify({nama:$("sesiNama").value})});
+  $("sesiNama").value = ""; loadSesi();
+};
+$("sesiSelesai").onclick = async () => { await fetch("/api/sesi/selesai", {method:"POST"}); loadSesi(); };
+
+$("muteBtn").onclick = () => fetch("/api/cmd", {method:"POST", headers:{"Content-Type":"application/json"},
+                                               body:JSON.stringify({cmd: muteNow ? "unmute" : "mute"})});
+
+// ---------- Muat awal ----------
+(async () => {
+  try {
+    const hist = await (await fetch("/api/riwayat?menit=3")).json();
+    hist.forEach(r => pushRms(r.waktu, r));
+    rmsChart.update();
+    const ev = await (await fetch("/api/kejadian?limit=30")).json();
+    ev.reverse().forEach(e => addEvent(e));
+  } catch (e) { /* database belum siap: tampilan live tetap jalan */ }
+  loadSesi(); loadSweep();
+})();
+</script>
+</body>
+</html>
