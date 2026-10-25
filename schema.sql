@@ -105,38 +105,6 @@ CREATE TABLE IF NOT EXISTS status_perangkat (
   INDEX idx_status_waktu (waktu)
 ) ENGINE=InnoDB;
 
--- Tabel Users
-CREATE TABLE IF NOT EXISTS users (
-  id            INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  username      VARCHAR(50)  NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  role          ENUM('admin','user') NOT NULL DEFAULT 'user',
-  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
--- Tabel Preferensi Pengguna
-CREATE TABLE IF NOT EXISTS user_preferences (
-  user_id           INT UNSIGNED NOT NULL PRIMARY KEY,
-  enable_wa         TINYINT(1) NOT NULL DEFAULT 0,
-  wa_number         VARCHAR(20)  NULL COMMENT 'format: 628123456789',
-  enable_telegram   TINYINT(1) NOT NULL DEFAULT 0,
-  telegram_chat_id  VARCHAR(50)  NULL,
-  enable_email      TINYINT(1) NOT NULL DEFAULT 0,
-  email_address     VARCHAR(120) NULL,
-  CONSTRAINT fk_pref_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Seed Admin Default (Password: admin123)
-INSERT INTO users (username, password_hash, role) VALUES
-  ('admin',
-   'scrypt:32768:8:1$aWExCiXmSjpzPYQH$aa03db8937c55899bedfe48e3fec0a9cf3f9244d22d6f776f7c0f05edceee2211b278dd4f82f32d10d688ce9b3f95adcd2c9d512c7113af9cd8dcdb83d3f2f43',
-   'admin')
-ON DUPLICATE KEY UPDATE username = username;
-
-INSERT INTO user_preferences (user_id, enable_wa, enable_telegram, enable_email)
-SELECT id, 0, 0, 0 FROM users WHERE username = 'admin'
-ON DUPLICATE KEY UPDATE user_id = user_id;
-
 -- ---------------------------------------------------------------------
 -- Contoh query berguna
 -- ---------------------------------------------------------------------
